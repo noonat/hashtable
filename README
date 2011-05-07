@@ -1,0 +1,13 @@
+A simple C hash table based on Lua's table implementation. This version does
+*not* include any of Lua's special-case numeric array handling.
+
+Example:
+
+    table_t table;
+    table_init(&table, H_STRING, NULL, NULL);
+    table_set(&table, (hvalue_t)"foo", 1);
+    table_set(&table, (hvalue_t)"bar", 2);
+    table_get(&table, (hvalue_t)"foo");  // 1
+    table_get(&table, (hvalue_t)"bar");  // 2
+    table_get(&table, (hvalue_t)"baz");  // 0
+    table_destroy(&table);

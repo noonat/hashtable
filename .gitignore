@@ -1,0 +1,4 @@
+*.o
+test/*.o
+test/test
+
