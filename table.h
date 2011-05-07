@@ -8,6 +8,13 @@ extern "C" {
 #include <stdint.h>
 #include "hash.h"
 
+typedef enum _table_error {
+  TABLE_ERROR_NONE = 0,
+  TABLE_ERROR_MEMORY,
+  TABLE_ERROR_OVERFLOW,
+  MAX_TABLE_ERROR
+} table_error_t;
+
 typedef struct _table table_t;
 typedef struct _table_node table_node_t;
 
@@ -18,6 +25,7 @@ struct _table {
   htype_t hash_type;
   hash_func_t hash_func;
   hash_equal_func_t hash_equal_func;
+  table_error_t error;
 };
 
 struct _table_node {
@@ -49,7 +57,8 @@ extern hvalue_t table_get(table_t *table, hvalue_t key);
 
 /**
 * Set the table key to a value, and return the table node. The table will
-* be resized if there isn't enough space.
+* be resized if there isn't enough space. If there is an error, NULL will
+* be returned, and table->error will contain the error code.
 */
 extern table_node_t *table_set(table_t *table, hvalue_t key, hvalue_t value);
 
@@ -62,6 +71,11 @@ int32_t table_contains(table_t *table, hvalue_t key);
 * Delete the matching node from the table, if it exists.
 */
 extern void table_delete(table_t *table, hvalue_t key);
+
+/**
+* Return the string version of a table error code.
+*/
+extern const char *table_error_string(table_error_t error);
 
 #ifdef __cplusplus
 }

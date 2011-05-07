@@ -3,7 +3,7 @@
 #include <string.h>
 #include "table.h"
 
-#define MAX_SIZE_BITS 24
+#define MAX_SIZE_BITS 30
 
 static const table_node_t _dummy_node = {
   0, 0, NULL, 0
@@ -17,7 +17,7 @@ static inline uint32_t _table_mod(table_t *table, int32_t i);
 static table_node_t *_table_nodes_alloc(int32_t count);
 static void _table_nodes_free(table_node_t *nodes);
 static int32_t _table_nodes_count(table_t *table);
-static void _table_nodes_resize(table_t *table, int32_t additional);
+static table_error_t _table_nodes_resize(table_t *table, int32_t additional);
 static table_node_t *_table_node_find_inactive(table_t *table);
 static table_node_t *_table_node_find_key(table_t *table, hvalue_t key, table_node_t **prev);
 static table_node_t *_table_node_insert_key(table_t *table, hvalue_t key);
@@ -54,10 +54,9 @@ static inline uint32_t _table_mod(table_t *table, int32_t i) {
 static table_node_t *_table_nodes_alloc(int32_t count) {
   size_t size = sizeof(table_node_t) * count;
   table_node_t *nodes = (table_node_t *)malloc(size);
-  if (nodes == NULL) {
-    // FIXME: error handling
+  if (nodes != NULL) {
+    memset(nodes, 0, size);
   }
-  memset(nodes, 0, size);
   return nodes;
 }
 
@@ -86,7 +85,7 @@ static int32_t _table_nodes_count(table_t *table) {
 * Resize the hash table. This will use round the desired size up to the next
 * power of two. Existing nodes will be redistributed across the new array.
 */
-static void _table_nodes_resize(table_t *table, int32_t additional) {
+static table_error_t _table_nodes_resize(table_t *table, int32_t additional) {
   table_node_t *old_nodes = table->nodes;
   int32_t old_size_log = table->nodes_size_log;
   int32_t old_size = 1 << old_size_log;
@@ -100,11 +99,14 @@ static void _table_nodes_resize(table_t *table, int32_t additional) {
   } else {
     int32_t new_size_log = _ceil_log2(new_size);
     if (new_size_log > MAX_SIZE_BITS) {
-      // FIXME: error handling: table overflow
+      return TABLE_ERROR_OVERFLOW;
     }
     new_size = 1 << new_size_log;
     table->nodes_size_log = new_size_log;
     table->nodes = _table_nodes_alloc(new_size);
+    if (table->nodes == NULL) {
+      return TABLE_ERROR_MEMORY;
+    }
   }
   table->inactive_node = &table->nodes[new_size];
   
@@ -118,6 +120,8 @@ static void _table_nodes_resize(table_t *table, int32_t additional) {
     }
     _table_nodes_free(old_nodes);
   }
+  
+  return TABLE_ERROR_NONE;
 }
 
 /**
@@ -215,8 +219,13 @@ static table_node_t *_table_node_insert_key(table_t *table, hvalue_t key) {
     table_node_t *new_node = _table_node_find_inactive(table);
     if (new_node == NULL) {
       // Couldn't find a free node, resize the table and try again
-      _table_nodes_resize(table, 1);
-      return _table_node_insert_key(table, key);
+      table_error_t error = _table_nodes_resize(table, 1);
+      if (error == TABLE_ERROR_NONE) {
+        return _table_node_insert_key(table, key);
+      } else {
+        table->error = error;
+        return NULL;
+      }
     }
     assert(new_node != _dummy_node_ptr);
     other_hash = table->hash_func(table->hash_type, node->key);
@@ -246,6 +255,7 @@ static table_node_t *_table_node_insert_key(table_t *table, hvalue_t key) {
 }
 
 void table_init(table_t *table, htype_t type, hash_func_t fn, hash_equal_func_t eq_fn) {
+  assert(table != NULL);
   assert(type != H_NULL);
   table->nodes = _dummy_node_ptr;
   table->nodes_size_log = 0;
@@ -256,33 +266,57 @@ void table_init(table_t *table, htype_t type, hash_func_t fn, hash_equal_func_t 
 }
 
 void table_destroy(table_t *table) {
-  _table_nodes_free(table->nodes);
-  table->nodes = NULL;
+  if (table != NULL) {
+    _table_nodes_free(table->nodes);
+    table->nodes = NULL;
+  }
 }
 
 hvalue_t table_get(table_t *table, hvalue_t key) {
-  table_node_t *node = _table_node_find_key(table, key, NULL);
+  table_node_t *node;
+  assert(table != NULL);
+  node = _table_node_find_key(table, key, NULL);
   return node != NULL ? node->value : 0;
 }
 
 table_node_t *table_set(table_t *table, hvalue_t key, hvalue_t value) {
-  table_node_t *node = _table_node_find_key(table, key, NULL);
+  table_node_t *node;
+  assert(table != NULL);
+  node = _table_node_find_key(table, key, NULL);
   if (node == NULL) {
     node = _table_node_insert_key(table, key);
   }
-  node->value = value;
+  if (node != NULL) {
+    node->value = value;
+  }
   return node;
 }
 
 int32_t table_contains(table_t *table, hvalue_t key) {
-  table_node_t *node = _table_node_find_key(table, key, NULL);
+  table_node_t *node;
+  assert(table != NULL);
+  node = _table_node_find_key(table, key, NULL);
   return node != NULL && node->active;
 }
 
 void table_delete(table_t *table, hvalue_t key) {
-  table_node_t *prev;
-  table_node_t *node = _table_node_find_key(table, key, &prev);
+  table_node_t *node, *prev;
+  assert(table != NULL);
+  node = _table_node_find_key(table, key, &prev);
   if (node != NULL) {
     _table_node_delete(table, node, prev);
+  }
+}
+
+const char *table_error_string(table_error_t error) {
+  switch (error) {
+    case TABLE_ERROR_NONE:
+      return "none";
+    case TABLE_ERROR_MEMORY:
+      return "out of memory";
+    case TABLE_ERROR_OVERFLOW:
+      return "table size too large";
+    default:
+      return "unknown error";
   }
 }

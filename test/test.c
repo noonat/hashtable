@@ -182,6 +182,13 @@ static void test_table_delete() {
   table_destroy(&t);
 }
 
+static void test_table_error_string() {
+  mu_assert(0 == strcmp(table_error_string(TABLE_ERROR_NONE), "none"));
+  mu_assert(0 == strcmp(table_error_string(TABLE_ERROR_MEMORY), "out of memory"));
+  mu_assert(0 == strcmp(table_error_string(TABLE_ERROR_OVERFLOW), "table size too large"));
+  mu_assert(0 == strcmp(table_error_string(MAX_TABLE_ERROR), "unknown error"));
+}
+
 int main(int argc, char **argv) {
   mu_test(test_table_init);
   mu_test(test_table_init_with_funcs);
@@ -191,6 +198,7 @@ int main(int argc, char **argv) {
   mu_test(test_table_get);
   mu_test(test_table_contains);
   mu_test(test_table_delete);
+  mu_test(test_table_error_string);
   mu_print_results();
   return mu_num_failures != 0;
 }
