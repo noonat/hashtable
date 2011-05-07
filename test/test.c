@@ -142,6 +142,46 @@ static void test_table_get() {
   table_destroy(&t);
 }
 
+static void test_table_contains() {
+  table_t t;
+  table_init(&t, H_STRING, NULL, NULL);
+  mu_assert(0 == table_contains(&t, (hvalue_t)"foo"));
+  mu_assert(0 == table_contains(&t, (hvalue_t)"bar"));
+  table_set(&t, (hvalue_t)"foo", 1);
+  mu_assert(1 == table_contains(&t, (hvalue_t)"foo"));
+  mu_assert(0 == table_contains(&t, (hvalue_t)"bar"));
+  table_set(&t, (hvalue_t)"bar", 2);
+  mu_assert(1 == table_contains(&t, (hvalue_t)"foo"));
+  mu_assert(1 == table_contains(&t, (hvalue_t)"bar"));
+  table_destroy(&t);
+}
+
+static void test_table_delete() {
+  table_t t;
+  table_init(&t, H_STRING, NULL, NULL);
+  mu_assert(0 == table_contains(&t, (hvalue_t)"foo"));
+  mu_assert(0 == table_contains(&t, (hvalue_t)"bar"));
+  table_set(&t, (hvalue_t)"foo", 1);
+  mu_assert(1 == table_contains(&t, (hvalue_t)"foo"));
+  mu_assert(0 == table_contains(&t, (hvalue_t)"bar"));
+  table_set(&t, (hvalue_t)"bar", 2);
+  mu_assert(1 == table_contains(&t, (hvalue_t)"foo"));
+  mu_assert(1 == table_contains(&t, (hvalue_t)"bar"));
+  table_delete(&t, (hvalue_t)"foo");
+  mu_assert(0 == table_contains(&t, (hvalue_t)"foo"));
+  mu_assert(1 == table_contains(&t, (hvalue_t)"bar"));
+  table_set(&t, (hvalue_t)"foo", 1);
+  mu_assert(1 == table_contains(&t, (hvalue_t)"foo"));
+  mu_assert(1 == table_contains(&t, (hvalue_t)"bar"));
+  table_delete(&t, (hvalue_t)"bar");
+  mu_assert(1 == table_contains(&t, (hvalue_t)"foo"));
+  mu_assert(0 == table_contains(&t, (hvalue_t)"bar"));
+  table_delete(&t, (hvalue_t)"foo");
+  mu_assert(0 == table_contains(&t, (hvalue_t)"foo"));
+  mu_assert(0 == table_contains(&t, (hvalue_t)"bar"));
+  table_destroy(&t);
+}
+
 int main(int argc, char **argv) {
   mu_test(test_table_init);
   mu_test(test_table_init_with_funcs);
@@ -149,6 +189,8 @@ int main(int argc, char **argv) {
   mu_test(test_table_set);
   mu_test(test_table_set_resize);
   mu_test(test_table_get);
+  mu_test(test_table_contains);
+  mu_test(test_table_delete);
   mu_print_results();
   return mu_num_failures != 0;
 }

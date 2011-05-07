@@ -53,6 +53,16 @@ extern hvalue_t table_get(table_t *table, hvalue_t key);
 */
 extern table_node_t *table_set(table_t *table, hvalue_t key, hvalue_t value);
 
+/**
+* Return true if the table contains the given key.
+*/
+int32_t table_contains(table_t *table, hvalue_t key);
+
+/**
+* Delete the matching node from the table, if it exists.
+*/
+extern void table_delete(table_t *table, hvalue_t key);
+
 #ifdef __cplusplus
 }
 #endif

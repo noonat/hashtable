@@ -19,7 +19,7 @@ static void _table_nodes_free(table_node_t *nodes);
 static int32_t _table_nodes_count(table_t *table);
 static void _table_nodes_resize(table_t *table, int32_t additional);
 static table_node_t *_table_node_find_inactive(table_t *table);
-static table_node_t *_table_node_find_key(table_t *table, hvalue_t key);
+static table_node_t *_table_node_find_key(table_t *table, hvalue_t key, table_node_t **prev);
 static table_node_t *_table_node_insert_key(table_t *table, hvalue_t key);
 
 static int32_t _log2(uint32_t n) {
@@ -121,6 +121,35 @@ static void _table_nodes_resize(table_t *table, int32_t additional) {
 }
 
 /**
+* Remove a node from the table. This marks the node as inactive, and updates
+* linked lists as necesary. If the node was at it's proper index, and the
+* next node's proper index matches, the next node will be moved up.
+*/
+static void _table_node_delete(table_t *table, table_node_t *node, table_node_t *prev) {
+  table_node_t *next = node->next;
+  if (prev != NULL) {
+    prev->next = next;
+  } else if (next != NULL) {
+    hcode_t next_hash = table->hash_func(table->hash_type, next->key);
+    table_node_t *next_node = &table->nodes[_table_mod(table, next_hash)];
+    if (next_node == node) {
+      // Next node's proper place is the node we're removing, so move it
+      node->key = next->key;
+      node->value = next->value;
+      node->next = next->next;
+      node = next;
+    }
+  }
+  node->active = 0;
+  node->key = 0;
+  node->value = 0;
+  node->next = NULL;
+  if (table->inactive_node <= node) {
+    table->inactive_node = node + 1;
+  }
+}
+
+/**
 * Return a node from the table's free list, or NULL if there are no free
 * nodes remaining in the table.
 */
@@ -137,15 +166,19 @@ static table_node_t *_table_node_find_inactive(table_t *table) {
 * Return the node in the hash table with a matching key, or NULL if no
 * matching node is found. If the table->key_func is set, the function will
 * be used to compare keys. Otherwise, the key pointers will be compared.
+*
+* @param prev If defined, a pointer to the previous node will be stored here.
 */
-static table_node_t *_table_node_find_key(table_t *table, hvalue_t key) {
+static table_node_t *_table_node_find_key(table_t *table, hvalue_t key, table_node_t **prev) {
   int32_t hash = table->hash_func(table->hash_type, key);
   table_node_t *node = &table->nodes[_table_mod(table, hash)];
+  table_node_t *prev_node = NULL;
   if (table->hash_equal_func != NULL) {
     while (node != NULL) {
       if (table->hash_equal_func(table->hash_type, node->key, key)) {
         break;
       }
+      prev_node = node;
       node = node->next;
     }
   } else {
@@ -153,8 +186,12 @@ static table_node_t *_table_node_find_key(table_t *table, hvalue_t key) {
       if (node->key == key) {
         break;
       }
+      prev_node = node;
       node = node->next;
     }
+  }
+  if (prev != NULL) {
+    *prev = prev_node;
   }
   return node;
 }
@@ -224,15 +261,28 @@ void table_destroy(table_t *table) {
 }
 
 hvalue_t table_get(table_t *table, hvalue_t key) {
-  table_node_t *node = _table_node_find_key(table, key);
+  table_node_t *node = _table_node_find_key(table, key, NULL);
   return node != NULL ? node->value : 0;
 }
 
 table_node_t *table_set(table_t *table, hvalue_t key, hvalue_t value) {
-  table_node_t *node = _table_node_find_key(table, key);
+  table_node_t *node = _table_node_find_key(table, key, NULL);
   if (node == NULL) {
     node = _table_node_insert_key(table, key);
   }
   node->value = value;
   return node;
+}
+
+int32_t table_contains(table_t *table, hvalue_t key) {
+  table_node_t *node = _table_node_find_key(table, key, NULL);
+  return node != NULL && node->active;
+}
+
+void table_delete(table_t *table, hvalue_t key) {
+  table_node_t *prev;
+  table_node_t *node = _table_node_find_key(table, key, &prev);
+  if (node != NULL) {
+    _table_node_delete(table, node, prev);
+  }
 }
