@@ -11,13 +11,13 @@ hcode_t hash_code(const htype_t type, const hvalue_t value) {
     case H_INT64:
     case H_UINT64:
       return hash_func_int64(type, value);
-    
+
     case H_STRING:
       return hash_func_string(type, value);
-    
+
     case H_VOID:
       return (hcode_t)(size_t)value;
-    
+
     default:
       return (hcode_t)value;
   }
@@ -34,7 +34,7 @@ int32_t hash_equal(const htype_t type, const hvalue_t a, const hvalue_t b) {
         return strcmp(sa, sb) == 0;
       }
     }
-    
+
     default:
       return a == b;
   }

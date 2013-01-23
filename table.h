@@ -42,40 +42,42 @@ struct _table_node {
 * @param fn Hash function. If NULL, hash_code will be used.
 * @param eq_fn Key equality function. If NULL, hash_equal will be used.
 */
-extern void table_init(table_t *table, htype_t type, hash_func_t fn, hash_equal_func_t eq_fn);
+extern void table_init(table_t * const table, const htype_t type,
+                       hash_func_t fn, hash_equal_func_t eq_fn);
 
 /**
 * Free the nodes associated with a table.
 */
-extern void table_destroy(table_t *table);
+extern void table_destroy(table_t * const table);
 
 /**
 * Return the hash table value for the given key, or NULL if the table does
 * not contain the key.
 */
-extern hvalue_t table_get(table_t *table, hvalue_t key);
+extern hvalue_t table_get(const table_t * const table, const hvalue_t key);
 
 /**
 * Set the table key to a value, and return the table node. The table will
 * be resized if there isn't enough space. If there is an error, NULL will
 * be returned, and table->error will contain the error code.
 */
-extern table_node_t *table_set(table_t *table, hvalue_t key, hvalue_t value);
+extern table_node_t *table_set(table_t * const table, const hvalue_t key,
+                               const hvalue_t value);
 
 /**
 * Return true if the table contains the given key.
 */
-int32_t table_contains(table_t *table, hvalue_t key);
+int32_t table_contains(const table_t * const table, const hvalue_t key);
 
 /**
 * Delete the matching node from the table, if it exists.
 */
-extern void table_delete(table_t *table, hvalue_t key);
+extern void table_delete(table_t * const table, const hvalue_t key);
 
 /**
 * Return the string version of a table error code.
 */
-extern const char *table_error_string(table_error_t error);
+extern const char *table_error_string(const table_error_t error);
 
 #ifdef __cplusplus
 }

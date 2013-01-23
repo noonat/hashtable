@@ -1,5 +1,5 @@
-CFLAGS=-O0 -g -Wall -Werror -I.
-CC?=gcc
+CFLAGS=-O0 -g --std=c99 -Wall -Werror -I.
+CC?=llvm-gcc
 
 test: test/test
 	@./$<
